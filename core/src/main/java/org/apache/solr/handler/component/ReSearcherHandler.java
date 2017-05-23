@@ -116,20 +116,20 @@ public class ReSearcherHandler {
     if (req.getCore() != null) {
       cc = req.getCore().getCoreDescriptor().getCoreContainer();
       isZkAware = cc.isZooKeeperAware();
-    } 
+    }
     
-    rb.isDistrib = req.getParams().getBool("distrib", isZkAware);
-    if (!rb.isDistrib) {
+    boolean isDistributed = req.getParams().getBool("distrib", isZkAware);
+    if (!isDistributed) {
       // for back compat, a shards param with URLs like localhost:8983/solr will mean that this
       // search is distributed.
       final String shards = req.getParams().get(ShardParams.SHARDS);
-      rb.isDistrib = ((shards != null) && (shards.indexOf('/') > 0));
+      isDistributed = ((shards != null) && (shards.indexOf('/') > 0));
     }
     
-    if (rb.isDistrib) {
+    if (isDistributed) {
       shardHandler = shardHandlerFactory.getShardHandler();
       shardHandler.prepDistributed(rb);
-      if (!rb.isDistrib) {
+      if (!isDistributed) {
         shardHandler = null; // request is not distributed after all and so the shard handler is not needed
       }
     }
@@ -152,6 +152,8 @@ public class ReSearcherHandler {
   @SuppressWarnings({ "deprecation", "unchecked" })
   private void handleSuggestionRequest(ReSearcherRequestContext ctx, ResponseBuilder rb, List<SearchComponent> components, boolean ignoreOutput) throws Exception {
     
+    boolean isDistributed = false;
+    
     ShardHandler shardHandler1 = null;
     try {
       shardHandler1 = getAndPrepShardHandler(rb.req, rb, ctx.getShardHandlerFactory());
@@ -168,7 +170,7 @@ public class ReSearcherHandler {
       }
     }
 
-    if (!rb.isDistrib) {
+    if (!isDistributed) {
       long timeAllowed = rb.req.getParams().getLong(CommonParams.TIME_ALLOWED, -1L);
       if (timeAllowed > 0L) {
         SolrQueryTimeoutImpl.set(timeAllowed);
@@ -289,7 +291,7 @@ public class ReSearcherHandler {
     }
     
  // SOLR-5550: still provide shards.info if requested even for a short circuited distrib request
-    if(!rb.isDistrib && rb.req.getParams().getBool(ShardParams.SHARDS_INFO, false) && rb.shortCircuitedURL != null) {
+    if(!isDistributed && rb.req.getParams().getBool(ShardParams.SHARDS_INFO, false) && rb.shortCircuitedURL != null) {
       NamedList<Object> shardInfo = new SimpleOrderedMap<Object>();
       SimpleOrderedMap<Object> nl = new SimpleOrderedMap<Object>();        
       if (rb.rsp.getException() != null) {
